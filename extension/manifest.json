@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ShopCopy",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Write SEO title, meta, body HTML, and 13 tags on a Shopify product edit page.",
   "action": {
     "default_title": "ShopCopy",
@@ -19,12 +19,22 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["activeTab"],
+  "permissions": [
+    "activeTab"
+  ],
   "content_scripts": [
     {
-      "matches": ["https://admin.shopify.com/*", "https://*.myshopify.com/admin*"],
-      "js": ["generate.js", "content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "https://admin.shopify.com/*",
+        "https://*.myshopify.com/admin*"
+      ],
+      "js": [
+        "generate.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_idle",
       "all_frames": true
     }

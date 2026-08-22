@@ -39,6 +39,73 @@
     }
   }
 
+  function walkOpenShadows(root, visit, depth) {
+    depth = depth || 0;
+    if (!root || depth > 14) return;
+    try {
+      visit(root);
+    } catch (e) {}
+    var nodes;
+    try {
+      nodes = root.querySelectorAll("*");
+    } catch (e2) {
+      return;
+    }
+    for (var i = 0; i < nodes.length; i++) {
+      try {
+        if (nodes[i].shadowRoot) walkOpenShadows(nodes[i].shadowRoot, visit, depth + 1);
+      } catch (e3) {}
+    }
+  }
+
+  function qsaDeep(sel, root) {
+    var out = [];
+    walkOpenShadows(root || document, function (r) {
+      var nodes;
+      try {
+        nodes = r.querySelectorAll(sel);
+      } catch (e) {
+        return;
+      }
+      for (var i = 0; i < nodes.length; i++) {
+        if (out.indexOf(nodes[i]) === -1) out.push(nodes[i]);
+      }
+    }, 0);
+    return out;
+  }
+
+  function shadowInputOf(el) {
+    if (!el) return null;
+    try {
+      var sr = el.shadowRoot;
+      if (sr) {
+        var inp = sr.querySelector("input, textarea");
+        if (inp) return inp;
+        var kids = sr.querySelectorAll("*");
+        for (var i = 0; i < kids.length; i++) {
+          var nested = shadowInputOf(kids[i]);
+          if (nested) return nested;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function isPolarisTitleHost(el) {
+    if (!el || !el.tagName) return false;
+    var tag = el.tagName.toLowerCase();
+    var name = (el.getAttribute && (el.getAttribute("name") || "")) || "";
+    var lab = (el.getAttribute && (el.getAttribute("label") || "")) || "";
+    var ph = (el.getAttribute && (el.getAttribute("placeholder") || "")) || "";
+    if (tag === "s-internal-text-field" || tag === "s-text-field") {
+      if (name === "title" || lab === "タイトル" || ph === "半袖Tシャツ") return true;
+      if (/^title$/i.test(name) || /^(タイトル|商品名|title)$/i.test(lab)) return true;
+    }
+    if (lab === "タイトル" && tag.indexOf("s-") === 0) return true;
+    if (ph === "半袖Tシャツ") return true;
+    return false;
+  }
+
   function collectDocs(rootDoc, out, depth) {
     out = out || [];
     depth = depth || 0;
@@ -73,7 +140,17 @@
   function inputValue(el) {
     if (!el) return "";
     var v = "";
-    if (typeof el.value === "string") v = el.value;
+    try {
+      if (typeof el.value === "string") v = el.value;
+    } catch (e) {}
+    if (!v) {
+      var sh = shadowInputOf(el);
+      if (sh) {
+        try {
+          if (typeof sh.value === "string") v = sh.value;
+        } catch (e2) {}
+      }
+    }
     if (!v && el.getAttribute) v = el.getAttribute("value") || "";
     if (!v && el.isContentEditable) v = textOf(el);
     if (!v && el.getAttribute && el.getAttribute("contenteditable") === "true") v = textOf(el);
@@ -236,7 +313,7 @@
 
   function labeledControls(doc, re) {
     var found = [];
-    var labels = qsa("label", doc);
+    var labels = qsaDeep("label", doc);
     var i, j, lab, t, id, el, wrap, inputs;
     for (i = 0; i < labels.length; i++) {
       lab = labels[i];
@@ -254,14 +331,14 @@
       }
       wrap = lab.parentElement;
       for (j = 0; j < 5 && wrap; j++) {
-        inputs = qsa("input, textarea, [contenteditable='true'], [role='textbox']", wrap);
+        inputs = qsaDeep("input, textarea, [contenteditable='true'], [role='textbox'], s-internal-text-field, s-text-field", wrap);
         for (var k = 0; k < inputs.length; k++) {
           if (!inOverlay(inputs[k])) found.push(inputs[k]);
         }
         wrap = wrap.parentElement;
       }
     }
-    var labelled = qsa("[aria-labelledby]", doc);
+    var labelled = qsaDeep("[aria-labelledby]", doc);
     for (i = 0; i < labelled.length; i++) {
       var ids = (labelled[i].getAttribute("aria-labelledby") || "").split(/\s+/);
       var blob = "";
@@ -278,7 +355,14 @@
   function scoreTitleInput(el, shopNames) {
     if (!el || inOverlay(el)) return -999;
     var tag = (el.tagName || "").toLowerCase();
-    if (tag !== "input" && tag !== "textarea" && !el.isContentEditable && el.getAttribute("role") !== "textbox") {
+    var polarisHost = isPolarisTitleHost(el);
+    if (
+      tag !== "input" &&
+      tag !== "textarea" &&
+      !el.isContentEditable &&
+      el.getAttribute("role") !== "textbox" &&
+      !polarisHost
+    ) {
       return -999;
     }
     if (tag === "input") {
@@ -296,9 +380,19 @@
     var id = (el.getAttribute("id") || "").toLowerCase();
     var aria = (el.getAttribute("aria-label") || "").toLowerCase();
     var ph = (el.getAttribute("placeholder") || "");
-    var lab = nearbyLabelText(el);
-    var labExactTitle = /^(title|product title|product name)$/i.test(lab) || /(^|\s)title$/i.test(lab.split("\n")[0] || lab);
+    var hostLabel = el.getAttribute("label") || "";
+    var lab = (nearbyLabelText(el) + " " + hostLabel).trim();
+    var labExactTitle = /^(title|product title|product name|タイトル|商品名)$/i.test(lab) || /(^|\s)title$/i.test(lab.split("\n")[0] || lab);
+    var shInp = shadowInputOf(el);
+    if (shInp) {
+      ph = ph || (shInp.getAttribute("placeholder") || "");
+      name = name || (shInp.getAttribute("name") || "").toLowerCase();
+    }
 
+    if (polarisHost) score += 90;
+    if (tag === "s-internal-text-field" && (name === "title" || hostLabel === "タイトル")) score += 80;
+    if (hostLabel === "タイトル") score += 70;
+    if (ph.indexOf("半袖Tシャツ") !== -1) score += 80;
     if (/product\[title\]|producttitle/.test(name) || id === "product-title") score += 80;
     if (name === "title") score += 25;
     if (el.hasAttribute("data-1p-ignore") || el.getAttribute("data-lpignore") === "true") score += 35;
@@ -340,6 +434,13 @@
       set.push(el);
     }
     var sels = [
+      's-internal-text-field[name="title"]',
+      's-internal-text-field[label="タイトル"]',
+      's-internal-text-field[placeholder="半袖Tシャツ"]',
+      's-text-field[name="title"]',
+      's-text-field[label="タイトル"]',
+      '[label="タイトル"]',
+      '[placeholder="半袖Tシャツ"]',
       'main input[name="title"]',
       'main textarea[name="title"]',
       '[role="main"] input[name="title"]',
@@ -354,6 +455,7 @@
       'input[aria-label="Product name"]',
       'input[aria-label*="Product title" i]',
       'input[placeholder="Short sleeve t-shirt"]',
+      'input[placeholder="半袖Tシャツ"]',
       '[data-testid="product-title"] input',
       '[data-testid*="product-title" i] input',
       'input[name="title"]',
@@ -362,10 +464,10 @@
     ];
     var i, j, nodes;
     for (i = 0; i < sels.length; i++) {
-      nodes = qsa(sels[i], doc);
+      nodes = qsaDeep(sels[i], doc);
       for (j = 0; j < nodes.length; j++) add(nodes[j]);
     }
-    var labeled = labeledControls(doc, /^(title|product title|product name)$/i);
+    var labeled = labeledControls(doc, /^(title|product title|product name|タイトル|商品名)$/i);
     for (i = 0; i < labeled.length; i++) add(labeled[i]);
     return set;
   }
@@ -506,6 +608,7 @@
 
   function readDescriptionFromDoc(doc) {
     var sels = [
+      'textarea[name="descriptionHtml"]',
       'textarea[name="body_html"]',
       'textarea[name="product[body_html]"]',
       'textarea[name="bodyHtml"]',
@@ -517,14 +620,17 @@
     ];
     var i, j, nodes, html;
     for (i = 0; i < sels.length; i++) {
-      nodes = qsa(sels[i], doc);
+      nodes = qsaDeep(sels[i], doc);
       for (j = 0; j < nodes.length; j++) {
         html = descFromEditorEl(nodes[j]);
         if (html && html.trim().length > 2) return html;
       }
     }
 
-    var labeled = labeledControls(doc, /^(description|body|product description|rich text)$/i);
+    html = readTinymceHtml(doc);
+    if (html && html.trim().length > 2) return html;
+
+    var labeled = labeledControls(doc, /^(description|body|product description|rich text|説明|商品の説明)$/i);
     for (i = 0; i < labeled.length; i++) {
       html = descFromEditorEl(labeled[i]);
       if (html && html.trim().length > 8) return html;
@@ -564,6 +670,7 @@
     var docs = allDocs();
     var i, j, nodes, labeled, inner;
     var sels = [
+      'textarea[name="descriptionHtml"]',
       'textarea[name="body_html"]',
       'textarea[name="product[body_html]"]',
       'textarea[name="bodyHtml"]',
@@ -574,7 +681,7 @@
     ];
     for (i = 0; i < docs.length; i++) {
       for (j = 0; j < sels.length; j++) {
-        nodes = qsa(sels[j], docs[i]).filter(function (el) {
+        nodes = qsaDeep(sels[j], docs[i]).filter(function (el) {
           return !inOverlay(el);
         });
         if (nodes[0]) {
@@ -583,7 +690,7 @@
             : { type: "ce", el: nodes[0] };
         }
       }
-      labeled = labeledControls(docs[i], /^(description|body|product description)$/i);
+      labeled = labeledControls(docs[i], /^(description|body|product description|説明|商品の説明)$/i);
       for (j = 0; j < labeled.length; j++) {
         if ((labeled[j].tagName || "").toLowerCase() === "textarea") return { type: "textarea", el: labeled[j] };
         if (labeled[j].isContentEditable || labeled[j].getAttribute("contenteditable") === "true") {
@@ -654,7 +761,68 @@
     return true;
   }
 
+  function readTinymceHtml(doc) {
+    var frames = qsaDeep("iframe#product-description-ru_ifr, iframe[id$='_ifr'][id*='product-description'], iframe[id*='description'][id$='_ifr']", doc);
+    var i, d, body, html;
+    for (i = 0; i < frames.length; i++) {
+      try {
+        d = frames[i].contentDocument || (frames[i].contentWindow && frames[i].contentWindow.document);
+        if (!d) continue;
+        body = d.body;
+        if (!body) continue;
+        html = body.innerHTML || "";
+        if (html && html.replace(/<[^>]+>/g, "").trim().length > 1) return html;
+      } catch (e) {}
+    }
+    return "";
+  }
+
+  function writeTinymceHtml(html) {
+    var docs = allDocs();
+    var wrote = false;
+    var i, j, frames, d, body;
+    for (i = 0; i < docs.length; i++) {
+      frames = qsaDeep("iframe#product-description-ru_ifr, iframe[id$='_ifr'][id*='product-description'], iframe[id*='description'][id$='_ifr']", docs[i]);
+      for (j = 0; j < frames.length; j++) {
+        try {
+          d = frames[j].contentDocument || (frames[j].contentWindow && frames[j].contentWindow.document);
+          if (!d || !d.body) continue;
+          body = d.body;
+          body.innerHTML = html;
+          try {
+            body.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, inputType: "insertFromPaste" }));
+          } catch (e) {
+            body.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          body.dispatchEvent(new Event("change", { bubbles: true }));
+          wrote = true;
+        } catch (e2) {}
+      }
+    }
+    return wrote;
+  }
+
+  function findDescriptionTextarea() {
+    var docs = allDocs();
+    var i, nodes;
+    for (i = 0; i < docs.length; i++) {
+      nodes = qsaDeep('textarea[name="descriptionHtml"]', docs[i]).filter(function (el) {
+        return !inOverlay(el);
+      });
+      if (nodes[0]) return nodes[0];
+    }
+    return null;
+  }
+
   function insertBody(html) {
+    var ok = false;
+    var ta = findDescriptionTextarea();
+    if (ta) {
+      setNativeValue(ta, html);
+      ok = true;
+    }
+    if (writeTinymceHtml(html)) ok = true;
+    if (ok) return true;
     var ed = findDescriptionEditor();
     if (!ed) return false;
     if (ed.type === "textarea") {
