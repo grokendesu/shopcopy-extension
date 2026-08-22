@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopCopy — Chrome extension for Shopify product SEO</title>
+  <meta name="description" content="Chrome extension that writes SEO copy for one Shopify product, on the product edit screen." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #11140c;
+      --paper: #f3f5ec;
+      --lime: #c6f24a;
+      --mute: #5c6450;
+      --line: #d5dcc8;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--paper); color: var(--ink); }
+    body {
+      font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 72px 24px 120px; }
+    .kicker {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--mute);
+    }
+    h1 {
+      font-size: clamp(40px, 7vw, 64px);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      font-weight: 600;
+      margin: 12px 0 20px;
+    }
+    h1 em { font-style: normal; color: var(--ink); background: var(--lime); padding: 0 0.12em; }
+    .sub { font-size: 20px; max-width: 38em; margin: 0 0 40px; }
+    a.dl {
+      display: inline-block;
+      background: var(--ink);
+      color: var(--lime);
+      text-decoration: none;
+      padding: 12px 16px;
+      font-weight: 600;
+      border-radius: 0;
+    }
+    a.dl:hover { background: #000; }
+    hr { border: 0; border-top: 1px solid var(--line); margin: 56px 0; }
+    h2 {
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin: 0 0 10px;
+      color: var(--mute);
+    }
+    .stack p { margin: 0 0 36px; max-width: 36em; }
+    ol.steps {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: st;
+    }
+    ol.steps li {
+      counter-increment: st;
+      padding: 18px 0 18px 52px;
+      position: relative;
+      border-top: 1px solid var(--line);
+    }
+    ol.steps li::before {
+      content: counter(st, decimal-leading-zero);
+      position: absolute;
+      left: 0;
+      top: 18px;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 13px;
+      color: var(--ink);
+      background: var(--lime);
+      padding: 2px 6px;
+    }
+    footer {
+      margin-top: 72px;
+      font-size: 13px;
+      color: var(--mute);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+    }
+    footer a { color: var(--ink); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="kicker">Chrome · MV3 · Shopify admin</p>
+    <h1>ShopCopy <em>on the product</em></h1>
+    <p class="sub">SEO title, meta, body HTML, and exactly 13 tags. Generated in the browser while you edit one product at admin.shopify.com.</p>
+    <p><a class="dl" href="./shopcopy-extension.zip">Download shopcopy-extension.zip</a></p>
+
+    <hr />
+
+    <div class="stack">
+      <h2>What</h2>
+      <p>Chrome extension that writes SEO copy for one Shopify product, on the product edit screen.</p>
+      <h2>Who</h2>
+      <p>Merchants editing a product in Shopify admin.</p>
+      <h2>How</h2>
+      <p>Unzip, Chrome → Extensions → Load unpacked → open a product → generate → copy SEO title, meta, body, 13 tags.</p>
+    </div>
+
+    <h2>Install (unpacked)</h2>
+    <ol class="steps">
+      <li>Download <a href="./shopcopy-extension.zip">shopcopy-extension.zip</a> and unzip it.</li>
+      <li>Open Chrome and go to chrome://extensions</li>
+      <li>Turn on Developer mode (top right).</li>
+      <li>Click Load unpacked and select the unzipped <code>extension</code> folder.</li>
+      <li>Open a product at admin.shopify.com → … → /products/…</li>
+      <li>Use the on-page overlay or the toolbar popup. Generate, then copy. Insert body if the description editor is found.</li>
+    </ol>
+
+    <footer>
+      MIT · <a href="https://github.com/mizukendesu/shopcopy-extension">github.com/mizukendesu/shopcopy-extension</a>
+      · no store submit required · no billing
+    </footer>
+  </div>
+</body>
+</html>
