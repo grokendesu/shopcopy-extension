@@ -4,9 +4,9 @@ MV3 extension: SEO title, meta description, body HTML, and 13 tags on a Shopify 
 
 ## Landing page
 
-https://mizukendesu.github.io/shopcopy-extension/
+https://grokendesu.github.io/shopcopy-extension/
 
-Zip: https://mizukendesu.github.io/shopcopy-extension/shopcopy-extension.zip
+Zip: https://grokendesu.github.io/shopcopy-extension/shopcopy-extension.zip
 
 ## Load unpacked
 

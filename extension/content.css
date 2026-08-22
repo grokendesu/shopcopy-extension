@@ -109,3 +109,13 @@
   text-transform: uppercase;
   cursor: pointer;
 }
+
+#shopcopy-root .sc-err {
+  display: none;
+  margin: 8px 0 0;
+  padding: 8px;
+  background: #3a1c12;
+  color: #ffd0c0;
+  border: 1px solid #8a3a22;
+  font-size: 12px;
+}
