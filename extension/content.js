@@ -4,7 +4,6 @@
 
   var TITLE_JUNK = /^(shopify|products?|home|admin|loading|untitled|new product|create product|search|dashboard|settings|online store)$/i;
   var SHOP_NAME_DEFAULTS = /^(マイストア|my store|development store|dev store|test store|your store)$/i;
-  var WAIT_TITLE = "Loading product title…";
 
   function isTop() {
     try {
@@ -865,13 +864,14 @@
   var toggle = null;
   var titleInput = null;
   var descInput = null;
-  var waitEl = null;
   var pollTimer = null;
   var pageMo = null;
   var mainMo = null;
   var spaHooked = false;
   var lastProductHref = "";
   var TITLE_WAIT_MS = 400;
+  var userHid = false;
+  var dockShown = false;
 
   function field(label, id, multiline) {
     var lab = el("label", { for: id, text: label });
@@ -902,10 +902,43 @@
     return wrap;
   }
 
-  function showWait(on) {
-    if (!waitEl) return;
-    waitEl.textContent = on ? WAIT_TITLE : "";
-    waitEl.style.display = on ? "flex" : "none";
+  function titleFieldRendered() {
+    if (!onProductEditPage()) return false;
+    var docs = allDocs();
+    var i, j, nodes;
+    for (i = 0; i < docs.length; i++) {
+      nodes = qsaDeep(
+        's-internal-text-field[name="title"], s-internal-text-field[label="タイトル"], s-text-field[name="title"], s-text-field[label="タイトル"], [label="タイトル"]',
+        docs[i]
+      );
+      for (j = 0; j < nodes.length; j++) {
+        if (!inOverlay(nodes[j]) && isPolarisTitleHost(nodes[j])) return true;
+      }
+      nodes = gatherTitleInputs(docs[i]);
+      for (j = 0; j < nodes.length; j++) {
+        if (isPolarisTitleHost(nodes[j])) return true;
+      }
+    }
+    return false;
+  }
+
+  function hideDock() {
+    dockShown = false;
+    if (panel) panel.style.display = "none";
+    if (toggle) toggle.style.display = "none";
+  }
+
+  function showDock() {
+    if (!panel || !toggle) return;
+    if (userHid) {
+      panel.style.display = "none";
+      toggle.style.display = "block";
+      dockShown = false;
+      return;
+    }
+    panel.style.display = "block";
+    toggle.style.display = "none";
+    dockShown = true;
   }
 
   function fillFromPage(force) {
@@ -934,11 +967,9 @@
     }
     title = (titleInput.value || "").trim();
     if (!title) {
-      showWait(true);
       lastResult = null;
       return false;
     }
-    showWait(false);
     var bullets = descInput.value
       .split("\n")
       .map(function (s) {
@@ -968,23 +999,32 @@
 
   function startWatch() {
     stopWatch();
-    var started = Date.now();
     function tick() {
-      var t = fillFromPage(false);
-      if (t && titleInput && (titleInput.value || "").trim()) {
-        showWait(false);
-        if (!lastResult) doGenerate();
-        if (Date.now() - started > 3200) stopWatch();
+      if (!onProductEditPage()) {
+        hideDock();
         return;
       }
-      showWait(true);
+      if (!titleFieldRendered()) {
+        hideDock();
+        return;
+      }
+      if (!document.getElementById("shopcopy-root")) renderPanel();
+      fillFromPage(false);
+      showDock();
+      if (titleInput && (titleInput.value || "").trim() && !lastResult) doGenerate();
     }
     pollTimer = setInterval(tick, TITLE_WAIT_MS);
     tick();
     if (!pageMo) {
       try {
         pageMo = new MutationObserver(function () {
+          if (!titleFieldRendered()) {
+            hideDock();
+            return;
+          }
+          if (!document.getElementById("shopcopy-root")) renderPanel();
           fillFromPage(false);
+          showDock();
         });
         pageMo.observe(document.documentElement, { childList: true, subtree: true });
       } catch (e) {}
@@ -994,26 +1034,19 @@
   function onSpaOrRerender() {
     var href = pageHref();
     var product = /\/products\/[^/?#]+/i.test(href);
-    if (isTop() && product && !document.getElementById("shopcopy-root")) {
-      renderPanel();
+    if (!product) {
+      hideDock();
       return;
     }
     if (href !== lastProductHref) {
       lastProductHref = href;
       lastResult = null;
+      userHid = false;
       if (titleInput) titleInput.value = "";
       if (descInput) descInput.value = "";
-      showWait(true);
-      if (product) startWatch();
-      return;
+      hideDock();
     }
-    if (!product) return;
-    var live = readTitle();
-    if (live) {
-      fillFromPage(false);
-      return;
-    }
-    if (titleInput && !(titleInput.value || "").trim()) startWatch();
+    startWatch();
   }
 
   function observeMain() {
@@ -1054,12 +1087,14 @@
 
   function renderPanel() {
     if (!isTop()) return;
+    if (!titleFieldRendered()) return;
     if (document.getElementById("shopcopy-root")) return;
     panel = el("div", { id: "shopcopy-root" });
     var header = el("header");
     header.appendChild(el("h1", { html: 'ShopCopy <span class="sc-accent">on page</span>' }));
     var x = el("button", { class: "sc-x", type: "button", text: "hide" });
     x.addEventListener("click", function () {
+      userHid = true;
       panel.style.display = "none";
       toggle.style.display = "block";
     });
@@ -1070,8 +1105,6 @@
     var d = field("Description / bullets (one per line)", "sc-desc", true);
     titleInput = t.input;
     descInput = d.input;
-    waitEl = el("p", { class: "sc-wait", id: "sc-wait" });
-    waitEl.style.display = "none";
     fillFromPage(true);
 
     var go = el("button", { class: "sc-go", type: "button", text: "Generate" });
@@ -1081,7 +1114,6 @@
     body.appendChild(t.input);
     body.appendChild(d.lab);
     body.appendChild(d.input);
-    body.appendChild(waitEl);
     var row = el("div", { class: "sc-row" });
     row.appendChild(go);
     row.appendChild(ins);
@@ -1111,15 +1143,17 @@
     toggle = el("button", { id: "shopcopy-toggle", type: "button", text: "ShopCopy" });
     toggle.style.display = "none";
     toggle.addEventListener("click", function () {
+      userHid = false;
       panel.style.display = "block";
       toggle.style.display = "none";
       fillFromPage(false);
     });
     document.documentElement.appendChild(toggle);
 
+    panel.style.display = "none";
     if ((titleInput.value || "").trim()) doGenerate();
-    startWatch();
     hookSpa();
+    showDock();
   }
 
   if (!isTop()) return;
@@ -1138,7 +1172,7 @@
       return true;
     }
     if (msg && msg.type === "shopcopy-show") {
-      renderPanel();
+      startWatch();
       sendResponse({ ok: true });
       return true;
     }
@@ -1146,6 +1180,6 @@
 
   if (isTop()) {
     hookSpa();
-    if (/\/products\//.test(location.pathname)) setTimeout(renderPanel, 400);
+    if (/\/products\//.test(location.pathname)) setTimeout(startWatch, 400);
   }
 })();

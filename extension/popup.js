@@ -3,8 +3,6 @@
   var title = document.getElementById("title");
   var desc = document.getElementById("desc");
   var status = document.getElementById("status");
-  var WAIT_TITLE = "Loading product title…";
-
   function paint(r) {
     last = r;
     document.getElementById("out-seo").textContent = r.seoTitle;
@@ -18,7 +16,7 @@
   function generate() {
     var t = (title.value || "").trim();
     if (!t) {
-      status.textContent = WAIT_TITLE;
+      status.textContent = "";
       last = null;
       document.getElementById("out-seo").textContent = "";
       document.getElementById("out-meta").textContent = "";
@@ -71,7 +69,7 @@
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     var tab = tabs[0];
     if (!tab || !tab.id) {
-      status.textContent = WAIT_TITLE;
+      status.textContent = "";
       return;
     }
     chrome.tabs.sendMessage(tab.id, { type: "shopcopy-read" }, function (res) {
@@ -82,7 +80,7 @@
       title.value = res.title || "";
       desc.value = res.description || "";
       if (!(title.value || "").trim()) {
-        status.textContent = WAIT_TITLE;
+        status.textContent = "";
         return;
       }
       status.textContent = /products/.test(res.href || "") ? "Read from this product." : "Shopify admin — open a product for a better read.";
