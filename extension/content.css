@@ -132,13 +132,26 @@
 }
 #shopcopy-toggle:hover { background: #1a1a1a; }
 
-#shopcopy-root .sc-err {
+#shopcopy-root .sc-wait {
   display: none;
+  align-items: center;
+  gap: 8px;
   margin: 8px 0 0;
   padding: 8px 10px;
-  background: #fff4f4;
-  color: #8e1f0b;
-  border: 1px solid #fed3d1;
+  background: #f6f6f7;
+  color: #6d7175;
+  border: 1px solid #e1e3e5;
   border-radius: 8px;
   font-size: 12px;
 }
+#shopcopy-root .sc-wait::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border: 2px solid #c9cccf;
+  border-top-color: #005bd3;
+  border-radius: 50%;
+  animation: sc-spin 0.8s linear infinite;
+  flex: 0 0 auto;
+}
+@keyframes sc-spin { to { transform: rotate(360deg); } }

@@ -4,7 +4,7 @@
 
   var TITLE_JUNK = /^(shopify|products?|home|admin|loading|untitled|new product|create product|search|dashboard|settings|online store)$/i;
   var SHOP_NAME_DEFAULTS = /^(マイストア|my store|development store|dev store|test store|your store)$/i;
-  var ERR_NO_TITLE = "Cannot find product title. Open a product edit page (admin.shopify.com …/products/…) and wait for the Title field to load.";
+  var WAIT_TITLE = "Loading product title…";
 
   function isTop() {
     try {
@@ -865,14 +865,13 @@
   var toggle = null;
   var titleInput = null;
   var descInput = null;
-  var errEl = null;
+  var waitEl = null;
   var pollTimer = null;
   var pageMo = null;
   var mainMo = null;
   var spaHooked = false;
   var lastProductHref = "";
   var TITLE_WAIT_MS = 400;
-  var TITLE_WAIT_MAX = 14000;
 
   function field(label, id, multiline) {
     var lab = el("label", { for: id, text: label });
@@ -903,10 +902,10 @@
     return wrap;
   }
 
-  function showError(msg) {
-    if (!errEl) return;
-    errEl.textContent = msg || "";
-    errEl.style.display = msg ? "block" : "none";
+  function showWait(on) {
+    if (!waitEl) return;
+    waitEl.textContent = on ? WAIT_TITLE : "";
+    waitEl.style.display = on ? "flex" : "none";
   }
 
   function fillFromPage(force) {
@@ -935,11 +934,11 @@
     }
     title = (titleInput.value || "").trim();
     if (!title) {
-      showError(ERR_NO_TITLE);
+      showWait(true);
       lastResult = null;
       return false;
     }
-    showError("");
+    showWait(false);
     var bullets = descInput.value
       .split("\n")
       .map(function (s) {
@@ -973,15 +972,12 @@
     function tick() {
       var t = fillFromPage(false);
       if (t && titleInput && (titleInput.value || "").trim()) {
-        showError("");
+        showWait(false);
         if (!lastResult) doGenerate();
         if (Date.now() - started > 3200) stopWatch();
         return;
       }
-      if (Date.now() - started >= TITLE_WAIT_MAX) {
-        stopWatch();
-        if (titleInput && !(titleInput.value || "").trim()) showError(ERR_NO_TITLE);
-      }
+      showWait(true);
     }
     pollTimer = setInterval(tick, TITLE_WAIT_MS);
     tick();
@@ -1007,7 +1003,7 @@
       lastResult = null;
       if (titleInput) titleInput.value = "";
       if (descInput) descInput.value = "";
-      showError("");
+      showWait(true);
       if (product) startWatch();
       return;
     }
@@ -1074,8 +1070,8 @@
     var d = field("Description / bullets (one per line)", "sc-desc", true);
     titleInput = t.input;
     descInput = d.input;
-    errEl = el("p", { class: "sc-err", id: "sc-err" });
-    errEl.style.display = "none";
+    waitEl = el("p", { class: "sc-wait", id: "sc-wait" });
+    waitEl.style.display = "none";
     fillFromPage(true);
 
     var go = el("button", { class: "sc-go", type: "button", text: "Generate" });
@@ -1085,7 +1081,7 @@
     body.appendChild(t.input);
     body.appendChild(d.lab);
     body.appendChild(d.input);
-    body.appendChild(errEl);
+    body.appendChild(waitEl);
     var row = el("div", { class: "sc-row" });
     row.appendChild(go);
     row.appendChild(ins);

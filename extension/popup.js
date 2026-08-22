@@ -3,7 +3,7 @@
   var title = document.getElementById("title");
   var desc = document.getElementById("desc");
   var status = document.getElementById("status");
-  var ERR_NO_TITLE = "Cannot find product title. Open a product edit page and wait for the Title field, or type the name here.";
+  var WAIT_TITLE = "Loading product title…";
 
   function paint(r) {
     last = r;
@@ -18,7 +18,7 @@
   function generate() {
     var t = (title.value || "").trim();
     if (!t) {
-      status.textContent = ERR_NO_TITLE;
+      status.textContent = WAIT_TITLE;
       last = null;
       document.getElementById("out-seo").textContent = "";
       document.getElementById("out-meta").textContent = "";
@@ -71,7 +71,7 @@
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     var tab = tabs[0];
     if (!tab || !tab.id) {
-      status.textContent = ERR_NO_TITLE;
+      status.textContent = WAIT_TITLE;
       return;
     }
     chrome.tabs.sendMessage(tab.id, { type: "shopcopy-read" }, function (res) {
@@ -82,7 +82,7 @@
       title.value = res.title || "";
       desc.value = res.description || "";
       if (!(title.value || "").trim()) {
-        status.textContent = ERR_NO_TITLE;
+        status.textContent = WAIT_TITLE;
         return;
       }
       status.textContent = /products/.test(res.href || "") ? "Read from this product." : "Shopify admin — open a product for a better read.";
