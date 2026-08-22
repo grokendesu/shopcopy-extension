@@ -2,7 +2,8 @@
   if (window.__shopcopyInjected) return;
   window.__shopcopyInjected = true;
 
-  var TITLE_JUNK = /^(shopify|products?|home|admin|loading|untitled|new product|create product|search|dashboard)$/i;
+  var TITLE_JUNK = /^(shopify|products?|home|admin|loading|untitled|new product|create product|search|dashboard|settings|online store)$/i;
+  var SHOP_NAME_DEFAULTS = /^(マイストア|my store|development store|dev store|test store|your store)$/i;
   var ERR_NO_TITLE = "Cannot find product title. Open a product edit page (admin.shopify.com …/products/…) and wait for the Title field to load.";
 
   function isTop() {
@@ -79,6 +80,151 @@
     return String(v).trim();
   }
 
+  function pageHref() {
+    try {
+      return String((window.top && window.top.location && window.top.location.href) || location.href || "");
+    } catch (e) {
+      return String(location.href || "");
+    }
+  }
+
+  function onProductEditPage() {
+    return /\/products\/[^/?#]+/i.test(pageHref());
+  }
+
+  function productIdFromUrl() {
+    var m = pageHref().match(/\/products\/(\d+)/i);
+    return m ? m[1] : "";
+  }
+
+  function inPageChrome(el) {
+    if (!el || !el.closest) return true;
+    return !!el.closest(
+      [
+        "nav",
+        "header",
+        "aside",
+        "[role='navigation']",
+        "[role='banner']",
+        "[role='menubar']",
+        "[role='menu']",
+        "[role='dialog']",
+        "[role='complementary']",
+        "#AppFrameNav",
+        "#AppFrameTopBar",
+        "#AppFrameMainNav",
+        "[data-save-bar]",
+        "[class*='Nav_']",
+        "[class*='TopBar']",
+        "[class*='Navigation']",
+        "[class*='StoreSwitcher']",
+        "[class*='shop-switcher']",
+        "[data-testid*='store-switcher' i]",
+        "[data-testid*='top-bar' i]",
+        "[data-testid*='nav' i]",
+        "[aria-label*='store' i]",
+        "[aria-label*='stores' i]"
+      ].join(",")
+    );
+  }
+
+  function inProductMain(el) {
+    if (!el || !el.closest) return false;
+    if (inPageChrome(el)) return false;
+    if (el.closest("main, [role='main'], #AppFrameMain, [class*='Polaris-Page'], [class*='Polaris-Layout__Section']:not([class*='secondary'])")) {
+      return true;
+    }
+    try {
+      var r = el.getBoundingClientRect();
+      if (r.width >= 280 && r.left > 140) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  function nearbyLabelText(el) {
+    if (!el) return "";
+    var blob = "";
+    var lab, id, i;
+    try {
+      id = el.id;
+      if (id && el.ownerDocument) {
+        var esc = (window.CSS && CSS.escape) ? CSS.escape(id) : id.replace(/"/g, '\"');
+        lab = el.ownerDocument.querySelector('label[for="' + esc + '"]');
+        if (lab) blob += " " + textOf(lab);
+      }
+    } catch (e) {}
+    blob += " " + (el.getAttribute("aria-label") || "");
+    var ids = (el.getAttribute("aria-labelledby") || "").split(/\s+/);
+    for (i = 0; i < ids.length; i++) {
+      if (!ids[i] || !el.ownerDocument) continue;
+      var ref = el.ownerDocument.getElementById(ids[i]);
+      if (ref) blob += " " + textOf(ref);
+    }
+    var wrap = el.parentElement;
+    for (i = 0; i < 4 && wrap; i++) {
+      var labels = qsa("label", wrap);
+      for (var j = 0; j < labels.length; j++) blob += " " + textOf(labels[j]);
+      wrap = wrap.parentElement;
+    }
+    return blob.replace(/\s+/g, " ").trim();
+  }
+
+  function collectShopNames(docs) {
+    var names = {};
+    function add(v) {
+      v = String(v || "").replace(/\s+/g, " ").trim();
+      if (!v || v.length < 2 || v.length > 80) return;
+      if (/shopify/i.test(v)) return;
+      names[v] = true;
+      names[v.toLowerCase()] = true;
+    }
+    var href = pageHref();
+    var store = href.match(/\/store\/([^/?#]+)/i);
+    if (store) {
+      add(store[1]);
+      add(store[1].replace(/-/g, " "));
+    }
+    var dt = "";
+    try {
+      dt = (window.top && window.top.document && window.top.document.title) || document.title || "";
+    } catch (e) {
+      dt = document.title || "";
+    }
+    var parts = String(dt).split(/\s*[·|—–]\s*/);
+    for (var p = 0; p < parts.length; p++) {
+      var part = parts[p].trim();
+      if (!part || /shopify/i.test(part)) continue;
+      if (p === parts.length - 1 || (p > 0 && !/\/products\//.test(href))) add(part);
+      if (SHOP_NAME_DEFAULTS.test(part)) add(part);
+    }
+    var i, j, nodes, t;
+    for (i = 0; i < docs.length; i++) {
+      nodes = qsa(
+        "[data-testid*='store' i], [data-testid*='shop' i], [aria-label*='store' i], [class*='StoreSwitcher'], [class*='shop-switcher']",
+        docs[i]
+      );
+      for (j = 0; j < nodes.length; j++) {
+        if (inOverlay(nodes[j])) continue;
+        t = textOf(nodes[j]);
+        if (t && t.length < 80) add(t.split(/\s*[·|]/)[0]);
+      }
+      nodes = qsa("nav button, header button, [role='navigation'] button, [role='banner'] button", docs[i]);
+      for (j = 0; j < Math.min(nodes.length, 12); j++) {
+        t = textOf(nodes[j]);
+        if (t && t.length >= 2 && t.length <= 40 && !/home|products|orders|settings|search/i.test(t)) add(t);
+      }
+    }
+    return names;
+  }
+
+  function isShopName(v, shopNames) {
+    if (!v) return false;
+    var s = String(v).replace(/\s+/g, " ").trim();
+    if (SHOP_NAME_DEFAULTS.test(s)) return true;
+    if (shopNames[s] || shopNames[s.toLowerCase()]) return true;
+    return false;
+  }
+
   function looksLikeTitle(v) {
     if (!v) return "";
     v = String(v).replace(/\s+/g, " ").trim();
@@ -129,68 +275,120 @@
     return found;
   }
 
-  function readTitleFromDoc(doc) {
+  function scoreTitleInput(el, shopNames) {
+    if (!el || inOverlay(el)) return -999;
+    var tag = (el.tagName || "").toLowerCase();
+    if (tag !== "input" && tag !== "textarea" && !el.isContentEditable && el.getAttribute("role") !== "textbox") {
+      return -999;
+    }
+    if (tag === "input") {
+      var typ = (el.getAttribute("type") || "text").toLowerCase();
+      if (typ && typ !== "text" && typ !== "search") return -999;
+    }
+    var val = looksLikeTitle(inputValue(el));
+    var emptyOk = !inputValue(el);
+    if (!val && !emptyOk) return -999;
+    if (val && isShopName(val, shopNames)) return -800;
+    if (inPageChrome(el)) return -700;
+
+    var score = 0;
+    var name = (el.getAttribute("name") || "").toLowerCase();
+    var id = (el.getAttribute("id") || "").toLowerCase();
+    var aria = (el.getAttribute("aria-label") || "").toLowerCase();
+    var ph = (el.getAttribute("placeholder") || "");
+    var lab = nearbyLabelText(el);
+    var labExactTitle = /^(title|product title|product name)$/i.test(lab) || /(^|\s)title$/i.test(lab.split("\n")[0] || lab);
+
+    if (/product\[title\]|producttitle/.test(name) || id === "product-title") score += 80;
+    if (name === "title") score += 25;
+    if (el.hasAttribute("data-1p-ignore") || el.getAttribute("data-lpignore") === "true") score += 35;
+    if (/^title$|^product title$|^product name$/i.test(aria) || /product title|product name/i.test(aria)) score += 40;
+    if (/^title$/i.test(lab.trim()) || /^title$/i.test(textOf(el.labels && el.labels[0]))) score += 55;
+    if (/^(title|product title|product name)$/i.test(lab.trim())) score += 20;
+    if (labExactTitle) score += 15;
+    if (/seo|search engine|page title|browser/i.test(lab + " " + aria + " " + name)) score -= 120;
+    if (/store|shop name|store name/i.test(lab + " " + aria + " " + name + " " + id)) score -= 200;
+    if (ph.indexOf("Short sleeve t-shirt") !== -1) score += 50;
+    if (/title|product name/i.test(ph) && !/seo/i.test(ph)) score += 10;
+    if (inProductMain(el)) score += 45;
+    if (el.closest && el.closest("form")) {
+      var form = el.closest("form");
+      var formHtml = "";
+      try {
+        formHtml = (form.getAttribute("action") || "") + " " + (form.getAttribute("id") || "") + " " + (form.getAttribute("data-resource") || "");
+      } catch (e2) {}
+      if (/product/i.test(formHtml)) score += 40;
+      if (form.querySelector && (form.querySelector('[name="body_html"], [name="product[body_html]"], textarea[aria-label*="description" i], [name="handle"]'))) {
+        score += 50;
+      }
+    }
+    try {
+      var r = el.getBoundingClientRect();
+      if (r.width >= 320) score += 20;
+      if (r.width >= 480) score += 10;
+      if (r.height >= 28 && r.height <= 64 && r.width >= 240) score += 8;
+    } catch (e3) {}
+    if (el.closest && el.closest("[class*='Polaris-Card'], [class*='Polaris-ShadowBevel'], [class*='Polaris-Box']")) score += 8;
+    if (!onProductEditPage()) score -= 20;
+    return score;
+  }
+
+  function gatherTitleInputs(doc) {
+    var set = [];
+    function add(el) {
+      if (!el || set.indexOf(el) !== -1) return;
+      set.push(el);
+    }
     var sels = [
-      'input[name="title"]',
-      'textarea[name="title"]',
+      'main input[name="title"]',
+      'main textarea[name="title"]',
+      '[role="main"] input[name="title"]',
+      'form input[name="title"]',
       'input[name="product[title]"]',
-      'input[id="title"]',
       'input[id="product-title"]',
       'input[name="productTitle"]',
-      'input[autocomplete="off"][name="title"]',
+      'input[data-1p-ignore][name="title"]',
+      'input[data-1p-ignore]',
       'input[aria-label="Title"]',
       'input[aria-label="Product title"]',
       'input[aria-label="Product name"]',
       'input[aria-label*="Product title" i]',
-      'input[aria-label*="product name" i]',
-      'textarea[aria-label="Title"]',
-      '[data-testid="product-title"] input',
-      '[data-testid*="Title" i] input',
-      '[data-testid*="product-title" i]',
-      '[name="title"]',
       'input[placeholder="Short sleeve t-shirt"]',
-      'input[placeholder*="title" i]',
-      'input[placeholder*="product name" i]'
+      '[data-testid="product-title"] input',
+      '[data-testid*="product-title" i] input',
+      'input[name="title"]',
+      'textarea[name="title"]',
+      '[name="title"]'
     ];
-    var i, j, nodes, v;
+    var i, j, nodes;
     for (i = 0; i < sels.length; i++) {
       nodes = qsa(sels[i], doc);
-      for (j = 0; j < nodes.length; j++) {
-        if (!visible(nodes[j]) && inputValue(nodes[j]) === "") continue;
-        if (inOverlay(nodes[j])) continue;
-        v = looksLikeTitle(inputValue(nodes[j]));
-        if (v) return v;
-      }
+      for (j = 0; j < nodes.length; j++) add(nodes[j]);
     }
-
-    var labeled = labeledControls(doc, /^(title|product title|product name|name)$/i);
-    for (i = 0; i < labeled.length; i++) {
-      var tag = (labeled[i].tagName || "").toLowerCase();
-      if (tag === "input" || tag === "textarea" || labeled[i].isContentEditable || labeled[i].getAttribute("role") === "textbox") {
-        v = looksLikeTitle(inputValue(labeled[i]));
-        if (v) return v;
-      }
-      var inner = qsa("input, textarea, [contenteditable='true']", labeled[i]);
-      for (j = 0; j < inner.length; j++) {
-        v = looksLikeTitle(inputValue(inner[j]));
-        if (v) return v;
-      }
-    }
-
-    var textboxes = qsa('[role="textbox"], [contenteditable="true"]', doc);
-    for (i = 0; i < textboxes.length; i++) {
-      if (inOverlay(textboxes[i])) continue;
-      var aria = (textboxes[i].getAttribute("aria-label") || "") + " " + (textboxes[i].getAttribute("name") || "");
-      if (/title|product name/i.test(aria)) {
-        v = looksLikeTitle(inputValue(textboxes[i]) || textOf(textboxes[i]));
-        if (v && v.length < 200) return v;
-      }
-    }
-
-    return "";
+    var labeled = labeledControls(doc, /^(title|product title|product name)$/i);
+    for (i = 0; i < labeled.length; i++) add(labeled[i]);
+    return set;
   }
 
-  function readTitleFromJson(doc) {
+  function readTitleFromDoc(doc, shopNames) {
+    var nodes = gatherTitleInputs(doc);
+    var bestEl = null;
+    var bestScore = 40;
+    var i, s, v;
+    for (i = 0; i < nodes.length; i++) {
+      s = scoreTitleInput(nodes[i], shopNames);
+      v = inputValue(nodes[i]);
+      if (v && isShopName(v, shopNames)) continue;
+      if (s > bestScore) {
+        bestScore = s;
+        bestEl = nodes[i];
+      }
+    }
+    if (!bestEl) return { found: false, title: "" };
+    return { found: true, title: looksLikeTitle(inputValue(bestEl)) };
+  }
+
+  function readTitleFromJson(doc, shopNames) {
     var blobs = [];
     var scripts = qsa("script", doc);
     var i;
@@ -215,22 +413,41 @@
       }
       if (typeof obj !== "object") return;
       var gid = String(obj.gid || obj.id || obj.__typename || "");
+      var typeName = String(obj.__typename || "");
+      if (/Shop|ShopPolicy|OnlineStore/i.test(typeName) && !/Product/i.test(typeName)) {
+        var keysSkip = Object.keys(obj);
+        for (var ks = 0; ks < keysSkip.length && ks < 80; ks++) {
+          if (obj[keysSkip[ks]] && typeof obj[keysSkip[ks]] === "object") walk(obj[keysSkip[ks]], depth + 1, acc);
+        }
+        return;
+      }
+      var pid = productIdFromUrl();
       var isProduct =
-        /Product/i.test(String(obj.__typename || "")) ||
+        /Product/i.test(typeName) ||
         /gid:\/\/shopify\/Product\//.test(gid) ||
-        (obj.title && (obj.bodyHtml || obj.body_html || obj.descriptionHtml || obj.description_html));
+        (obj.title && (obj.bodyHtml || obj.body_html || obj.descriptionHtml || obj.description_html) && !obj.myshopifyDomain);
       if (isProduct && obj.title) {
         var t = looksLikeTitle(obj.title);
-        if (t) acc.push({ title: t, body: obj.bodyHtml || obj.body_html || obj.descriptionHtml || obj.description_html || obj.description || "" });
+        if (t && !isShopName(t, shopNames)) {
+          var idStr = String(obj.id || obj.gid || "");
+          var rank = 1;
+          if (pid && idStr.indexOf(pid) !== -1) rank = 3;
+          if (/Product/i.test(typeName) || /gid:\/\/shopify\/Product\//.test(gid)) rank += 1;
+          acc.push({
+            title: t,
+            body: obj.bodyHtml || obj.body_html || obj.descriptionHtml || obj.description_html || obj.description || "",
+            rank: rank
+          });
+        }
       }
       var keys = Object.keys(obj);
       for (var k = 0; k < keys.length && k < 80; k++) {
         var key = keys[k];
-        if (key === "title" && typeof obj[key] === "string" && obj.handle) {
-          var t2 = looksLikeTitle(obj[key]);
-          if (t2) acc.push({ title: t2, body: obj.body_html || obj.bodyHtml || "" });
-        }
         var val = obj[key];
+        if (key === "title" && typeof val === "string" && obj.handle && (obj.body_html || obj.bodyHtml || obj.variants || obj.product_type != null)) {
+          var t2 = looksLikeTitle(val);
+          if (t2 && !isShopName(t2, shopNames)) acc.push({ title: t2, body: obj.body_html || obj.bodyHtml || "", rank: 2 });
+        }
         if (val && typeof val === "object") walk(val, depth + 1, acc);
       }
     }
@@ -249,42 +466,34 @@
         }
       }
     }
+    acc.sort(function (a, b) { return b.rank - a.rank; });
     if (acc[0]) return acc[0];
     return null;
   }
 
-  function readTitleFromDocumentTitle(doc) {
-    var dt = "";
-    try {
-      dt = (doc.defaultView && doc.defaultView.top && doc.defaultView.top.document
-        ? doc.defaultView.top.document.title
-        : doc.title) || doc.title || "";
-    } catch (e) {
-      dt = doc.title || "";
-    }
-    var parts = String(dt).split(/\s*[·|—–-]\s*/);
-    for (var i = 0; i < parts.length; i++) {
-      var v = looksLikeTitle(parts[i]);
-      if (v && !/shopify/i.test(v)) return v;
-    }
-    return "";
-  }
-
   function readTitle() {
     var docs = allDocs();
-    var i, t, js;
+    var shopNames = collectShopNames(docs);
+    var i, got, js;
+    var foundField = false;
+    var fromField = "";
     for (i = 0; i < docs.length; i++) {
-      t = readTitleFromDoc(docs[i]);
-      if (t) return t;
+      got = readTitleFromDoc(docs[i], shopNames);
+      if (got.found) {
+        foundField = true;
+        if (got.title) {
+          fromField = got.title;
+          break;
+        }
+      }
     }
+    if (fromField) return fromField;
+    if (foundField) return "";
+    if (!onProductEditPage()) return "";
     for (i = 0; i < docs.length; i++) {
-      js = readTitleFromJson(docs[i]);
-      if (js && js.title) return js.title;
+      js = readTitleFromJson(docs[i], shopNames);
+      if (js && js.title && !isShopName(js.title, shopNames)) return js.title;
     }
-    try {
-      t = readTitleFromDocumentTitle(document);
-      if (t) return t;
-    } catch (e) {}
     return "";
   }
 
@@ -345,7 +554,7 @@
       if (d) return d;
     }
     for (i = 0; i < docs.length; i++) {
-      js = readTitleFromJson(docs[i]);
+      js = readTitleFromJson(docs[i], collectShopNames(docs));
       if (js && js.body) return js.body;
     }
     return "";
