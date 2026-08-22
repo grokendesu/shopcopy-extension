@@ -1,121 +1,144 @@
 #shopcopy-root {
   position: fixed;
-  top: 12px;
-  right: 12px;
+  top: 56px;
+  right: 0;
+  bottom: 0;
   z-index: 2147483646;
-  width: 380px;
-  max-height: calc(100vh - 24px);
+  width: 280px;
+  max-width: 32vw;
+  max-height: none;
   overflow: auto;
-  background: #11140c;
-  color: #e8eedd;
-  font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  background: #ffffff;
+  color: #202223;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "San Francisco", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 13px;
   line-height: 1.4;
-  border: 1px solid #2a3320;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  border: 0;
+  border-left: 1px solid #c9cccf;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.08);
 }
 #shopcopy-root * { box-sizing: border-box; }
 #shopcopy-root header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  padding: 12px 14px 8px;
-  border-bottom: 1px solid #2a3320;
+  padding: 12px 14px;
+  background: #f6f6f7;
+  border-bottom: 1px solid #e1e3e5;
 }
 #shopcopy-root h1 {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #202223;
 }
-#shopcopy-root .sc-accent { color: #c6f24a; }
+#shopcopy-root .sc-accent { color: #6d7175; font-weight: 500; }
 #shopcopy-root button.sc-x {
   background: transparent;
   border: 0;
-  color: #e8eedd;
+  color: #6d7175;
   cursor: pointer;
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: inherit;
   font-size: 12px;
+  padding: 4px 6px;
 }
-#shopcopy-root .sc-body { padding: 12px 14px 16px; }
+#shopcopy-root button.sc-x:hover { color: #202223; }
+#shopcopy-root .sc-body { padding: 12px 14px 20px; background: #ffffff; }
 #shopcopy-root label {
   display: block;
   margin: 10px 0 4px;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #9aa68a;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 550;
+  color: #202223;
 }
 #shopcopy-root input,
 #shopcopy-root textarea {
   width: 100%;
-  background: #1a1f14;
-  color: #e8eedd;
-  border: 1px solid #2a3320;
-  border-radius: 0;
-  padding: 8px;
+  background: #ffffff;
+  color: #202223;
+  border: 1px solid #8c9196;
+  border-radius: 8px;
+  padding: 7px 10px;
   font-family: inherit;
   font-size: 13px;
 }
+#shopcopy-root input:focus,
+#shopcopy-root textarea:focus {
+  outline: none;
+  border-color: #005bd3;
+  box-shadow: 0 0 0 1px #005bd3;
+}
 #shopcopy-root textarea { min-height: 72px; resize: vertical; }
-#shopcopy-root .sc-row { display: flex; gap: 8px; margin-top: 10px; }
+#shopcopy-root .sc-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 #shopcopy-root button.sc-go,
 #shopcopy-root button.sc-copy {
-  background: #c6f24a;
-  color: #11140c;
-  border: 0;
-  border-radius: 0;
-  padding: 8px 10px;
-  font-weight: 600;
+  background: #303030;
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-weight: 550;
   cursor: pointer;
   font-family: inherit;
+  font-size: 13px;
 }
+#shopcopy-root button.sc-go:hover { background: #1a1a1a; }
 #shopcopy-root button.sc-copy {
-  background: transparent;
-  color: #c6f24a;
-  border: 1px solid #c6f24a;
+  background: #ffffff;
+  color: #202223;
+  border: 1px solid #8c9196;
 }
+#shopcopy-root button.sc-copy:hover { background: #f6f6f7; }
 #shopcopy-root .sc-count {
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px;
-  color: #c6f24a;
+  color: #6d7175;
   float: right;
+  font-weight: 400;
 }
 #shopcopy-root .sc-out {
-  background: #1a1f14;
-  border: 1px solid #2a3320;
+  background: #f6f6f7;
+  border: 1px solid #e1e3e5;
+  border-radius: 8px;
   padding: 8px;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px;
+  color: #202223;
   max-height: 120px;
   overflow: auto;
 }
 #shopcopy-toggle {
   position: fixed;
-  top: 12px;
+  top: 64px;
   right: 12px;
   z-index: 2147483645;
-  background: #c6f24a;
-  color: #11140c;
+  background: #303030;
+  color: #ffffff;
   border: 0;
-  border-radius: 0;
+  border-radius: 8px;
   padding: 8px 12px;
-  font-family: "IBM Plex Sans", Arial, sans-serif;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-weight: 550;
+  letter-spacing: 0;
+  text-transform: none;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
 }
+#shopcopy-toggle:hover { background: #1a1a1a; }
 
 #shopcopy-root .sc-err {
   display: none;
   margin: 8px 0 0;
-  padding: 8px;
-  background: #3a1c12;
-  color: #ffd0c0;
-  border: 1px solid #8a3a22;
+  padding: 8px 10px;
+  background: #fff4f4;
+  color: #8e1f0b;
+  border: 1px solid #fed3d1;
+  border-radius: 8px;
   font-size: 12px;
 }

@@ -1,7 +1,7 @@
 from struct import pack
 import zlib, os
 
-def png(path, size, rgb=(198, 242, 74), ink=(17, 20, 12)):
+def png(path, size, rgb=(48, 48, 48), ink=(255, 255, 255)):
     w = h = size
     rows = []
     for y in range(h):
